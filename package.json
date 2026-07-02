@@ -21,6 +21,9 @@
   ],
   "license": "MIT",
   "author": "T50-Systems",
+  "dependencies": {
+    "pi-anchor-edit-core": "git+https://github.com/T50-Systems/pi-anchor-edit-core.git"
+  },
   "devDependencies": {
     "@types/node": "^24.3.0",
     "typescript": "^5.9.2"
