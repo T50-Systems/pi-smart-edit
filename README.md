@@ -93,6 +93,10 @@ Ask Pi to use the `smart_edit` tool when:
 - you want boundary-based replacement
 - you want a safer retry loop around hashline editing
 
+### Examples
+
+- `examples/smart_edit-examples.md` contains ready-to-copy prompts and parameter payloads for all three modes.
+
 ## Install as a Pi package
 
 Intended flow:
