@@ -1,6 +1,13 @@
+import { createHash } from 'node:crypto';
 import type { AnchorLine, StaleAnchorInfo } from './types.js';
 
 const ANCHOR_RE = /^(\d+)#([^:]+):(.*)$/;
+
+export function makeAnchor(lineNumber: number, content: string): AnchorLine {
+  const hash = createHash('sha1').update(content).digest('hex').slice(0, 8).toUpperCase();
+  const raw = `${lineNumber}#${hash}:${content}`;
+  return { lineNumber, hash, content, raw };
+}
 
 export function parseAnchorLine(line: string): AnchorLine | null {
   const match = line.match(ANCHOR_RE);
@@ -18,6 +25,10 @@ export function parseReadAnchors(text: string): AnchorLine[] {
     .split(/\r?\n/)
     .map(parseAnchorLine)
     .filter((v): v is AnchorLine => Boolean(v));
+}
+
+export function formatAnchors(lines: string[], offset = 1): string {
+  return lines.map((line, idx) => makeAnchor(offset + idx, line).raw).join('\n');
 }
 
 export function parseStaleAnchorError(text: string): StaleAnchorInfo {

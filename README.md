@@ -1,63 +1,118 @@
 # pi-smart-edit
 
-Smart editing helpers for Pi focused on the pain point behind frequent `[E_STALE_ANCHOR]` failures.
+Smart editing helpers for Pi focused on frequent `[E_STALE_ANCHOR]` failures.
 
-## Problem
+## What this repo now includes
 
-Pi's hashline editing model is precise, but iterative workflows often do this:
+1. **Real local hashline adapter**
+   - `src/filesystem-client.ts`
+   - Reads files in hashline format and applies anchored edits locally
+   - Detects stale anchors and emits Pi-style `[E_STALE_ANCHOR]` errors
+
+2. **Retry/session layer**
+   - `src/smart-edit.ts`
+   - `replaceAnchoredWithRetry()` retries using suggested `>>> LINE#HASH` anchors
+   - `replaceBetween()` and `replaceUnique()` provide semantic helpers
+
+3. **Pi extension tool**
+   - `src/extension.ts`
+   - Registers a `smart_edit` tool for Pi
+   - Designed for use as a Pi package/extension
+
+4. **CLI**
+   - `pi-smart-edit`
+   - Useful outside Pi too
+
+5. **Tests**
+   - `test/*.test.ts`
+   - Covers stale parsing, retry behavior, and local filesystem adapter behavior
+
+## Why this exists
+
+A common Pi workflow is:
 
 1. `read`
 2. `edit`
-3. `cargo fmt` or another edit
-4. try another `edit` with old anchors
+3. `fmt` or another edit changes the file
+4. a second `edit` uses old anchors
+5. Pi returns `[E_STALE_ANCHOR]`
 
-That commonly produces stale-anchor failures.
+This repo reduces that friction with a smarter wrapper and a Pi-facing tool.
 
-## Goal
+## CLI usage
 
-Provide a Pi-friendly wrapper that keeps the safety of hashline editing while reducing friction via:
+### Replace unique text
 
-- automatic retry on stale anchors
-- anchor refresh after successful edits
-- semantic helpers like `replaceBetween`, `replaceFunction`, and unique text replacement
-- a reusable library layer for Pi extensions/tools
+```bash
+pi-smart-edit replace-unique \
+  --path src/file.ts \
+  --old "const x = 1;" \
+  --new "const x = 2;"
+```
 
-## Initial design
+### Replace between two anchored contents
 
-### `SmartEditSession`
+```bash
+pi-smart-edit replace-between \
+  --path src/file.ts \
+  --start "fn start() {" \
+  --end "}" \
+  --lines-json '["fn start() {", "  return 42;", "}"]'
+```
 
-A session wraps a Pi-compatible client with `read` and `edit` operations and offers:
+### Retry an anchored edit
 
-- `readFresh(path)`
-- `replaceAnchored(...)`
-- `replaceUnique(...)`
-- `replaceBetween(...)`
-- `applyWithRetry(...)`
+```bash
+pi-smart-edit anchored-retry \
+  --path src/file.ts \
+  --pos '12#ABCD1234:old line' \
+  --op replace \
+  --lines-json '["new line"]'
+```
 
-### Stale-anchor recovery
+## Use from Pi
 
-If `edit` returns `[E_STALE_ANCHOR]`, the wrapper can:
+This package exposes a Pi extension entrypoint:
 
-1. inspect the returned `>>> LINE#HASH` lines
-2. refresh the nearby file region
-3. rebuild the intended patch if enough context still matches
-4. retry automatically
+- `dist/extension.js`
 
-## Scope of this repo
+The extension registers a tool named:
 
-This repo is intentionally Pi-oriented:
+- `smart_edit`
 
-- input/output shapes match Pi's `read`/`edit` mental model
-- good for future use as a Pi extension/tool
-- focused on practical editing ergonomics, not generic diff tooling
+### Tool modes
 
-## Status
+- `replace_unique`
+- `replace_between`
+- `anchored_retry`
 
-Scaffolded. Core retry/session code lives in `src/`.
+### Example Pi usage intent
 
-## Next steps
+Ask Pi to use the `smart_edit` tool when:
+- a normal anchored edit went stale
+- you want boundary-based replacement
+- you want a safer retry loop around hashline editing
 
-- add a real Pi transport adapter
-- add parser for stale-anchor error payloads
-- add end-to-end tests with mocked `read`/`edit`
-- optionally expose a Pi extension wrapper
+## Install as a Pi package
+
+Intended flow:
+
+```bash
+pi install git:github.com/T50-Systems/pi-smart-edit
+```
+
+Or load locally during development with an extension path after build.
+
+## Development
+
+```bash
+npm install
+npm run check
+npm test
+```
+
+## Notes
+
+- The local adapter is intentionally conservative and Pi-shaped.
+- The extension is the Pi-facing integration point.
+- This is aimed at practical editing ergonomics, not full diff/merge tooling.

@@ -1,6 +1,6 @@
 {
   "name": "@t50-systems/pi-smart-edit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Smart editing helpers for Pi with stale-anchor recovery and semantic patch workflows",
   "type": "module",
   "bin": {
@@ -8,7 +8,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test dist/test/**/*.test.js",
+    "pretest": "npm run build"
   },
   "keywords": [
     "pi",
@@ -18,5 +20,14 @@
     "tooling"
   ],
   "license": "MIT",
-  "author": "T50-Systems"
+  "author": "T50-Systems",
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2"
+  },
+  "pi": {
+    "extensions": [
+      "./dist/extension.js"
+    ]
+  }
 }

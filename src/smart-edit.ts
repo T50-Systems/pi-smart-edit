@@ -1,5 +1,5 @@
 import { findAnchorByContent, parseReadAnchors, parseStaleAnchorError } from './anchors.js';
-import type { EditOp, PiClient } from './types.js';
+import type { EditOp, PiClient, ReplaceLikeEditOp } from './types.js';
 
 export class SmartEditSession {
   constructor(private readonly client: PiClient) {}
@@ -19,10 +19,7 @@ export class SmartEditSession {
     return this.client.edit({ path, edits: [edit] });
   }
 
-  async replaceAnchoredWithRetry(
-    path: string,
-    edit: Extract<EditOp, { op: 'replace' | 'append' | 'prepend' }>,
-  ): Promise<string> {
+  async replaceAnchoredWithRetry(path: string, edit: ReplaceLikeEditOp): Promise<string> {
     const first = await this.client.edit({ path, edits: [edit] });
     const stale = parseStaleAnchorError(first);
     if (!stale.stale) return first;
@@ -31,21 +28,27 @@ export class SmartEditSession {
       throw new Error('Cannot auto-recover a stale edit without a position anchor');
     }
 
-    const originalContent = edit.pos.split(':')[1] ?? '';
-    const replacement = findAnchorByContent(stale.suggested, originalContent);
+    const originalPosContent = edit.pos.split(':')[1] ?? '';
+    const replacement = findAnchorByContent(stale.suggested, originalPosContent);
     if (!replacement) {
       throw new Error(`Stale anchor detected, but no matching recovery anchor was found.\n${first}`);
     }
 
-    const retried = {
-      ...edit,
-      pos: replacement.raw,
-      end: edit.end && stale.suggested.length
-        ? findAnchorByContent(stale.suggested, edit.end.split(':')[1] ?? '')?.raw ?? edit.end
-        : edit.end,
-    };
+    const originalEndContent = edit.end?.split(':')[1] ?? '';
+    const replacementEnd = edit.end
+      ? findAnchorByContent(stale.suggested, originalEndContent)?.raw ?? edit.end
+      : undefined;
 
-    return this.client.edit({ path, edits: [retried] });
+    return this.client.edit({
+      path,
+      edits: [
+        {
+          ...edit,
+          pos: replacement.raw,
+          end: replacementEnd,
+        },
+      ],
+    });
   }
 
   async replaceBetween(

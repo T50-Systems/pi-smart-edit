@@ -4,18 +4,20 @@ export type ReadParams = {
   limit?: number;
 };
 
-export type EditOp =
-  | {
-      op: 'replace' | 'append' | 'prepend';
-      pos?: string;
-      end?: string;
-      lines?: string[];
-    }
-  | {
-      op: 'replace_text';
-      oldText: string;
-      newText: string;
-    };
+export type ReplaceLikeEditOp = {
+  op: 'replace' | 'append' | 'prepend';
+  pos?: string;
+  end?: string;
+  lines?: string[];
+};
+
+export type ReplaceTextEditOp = {
+  op: 'replace_text';
+  oldText: string;
+  newText: string;
+};
+
+export type EditOp = ReplaceLikeEditOp | ReplaceTextEditOp;
 
 export type EditParams = {
   path: string;
