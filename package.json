@@ -1,0 +1,22 @@
+{
+  "name": "@t50-systems/pi-smart-edit",
+  "version": "0.1.0",
+  "description": "Smart editing helpers for Pi with stale-anchor recovery and semantic patch workflows",
+  "type": "module",
+  "bin": {
+    "pi-smart-edit": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [
+    "pi",
+    "hashline",
+    "editing",
+    "stale-anchor",
+    "tooling"
+  ],
+  "license": "MIT",
+  "author": "T50-Systems"
+}
