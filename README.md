@@ -1,47 +1,64 @@
 # pi-smart-edit
 
-Smart editing helpers for Pi focused on frequent `[E_STALE_ANCHOR]` failures.
+Smart editing helpers for Pi workflows that frequently hit stale anchors or need a safer semantic edit wrapper.
 
-## What this repo now includes
-
-1. **Real local hashline adapter**
-   - `src/filesystem-client.ts`
-   - Reads files in hashline format and applies anchored edits locally
-   - Detects stale anchors and emits Pi-style `[E_STALE_ANCHOR]` errors
-
-2. **Retry/session layer**
-   - `src/smart-edit.ts`
-   - `replaceAnchoredWithRetry()` retries using suggested `>>> LINE#HASH` anchors
-   - `replaceBetween()` and `replaceUnique()` provide semantic helpers
-
-3. **Pi extension tool**
-   - `src/extension.ts`
-   - Registers a `smart_edit` tool for Pi
-   - Designed for use as a Pi package/extension
-
-4. **CLI**
-   - `pi-smart-edit`
-   - Useful outside Pi too
-
-5. **Tests**
-   - `test/*.test.ts`
-   - Covers stale parsing, retry behavior, and local filesystem adapter behavior
+`@t50-systems/pi-smart-edit` combines a local hashline filesystem adapter, retry helpers, a Pi extension tool, and a small CLI. It is designed to sit above anchor-based read/edit tooling and recover from common `[E_STALE_ANCHOR]` failures by re-reading suggested anchors and retrying carefully.
 
 ## Why this exists
 
-A common Pi workflow is:
+A common Pi editing loop is:
 
-1. `read`
-2. `edit`
-3. `fmt` or another edit changes the file
-4. a second `edit` uses old anchors
-5. Pi returns `[E_STALE_ANCHOR]`
+1. `read` a file and receive `LINE#HASH:content` anchors.
+2. `edit` one section.
+3. Formatting, generation, or another edit changes the file.
+4. A later edit uses stale anchors and Pi returns `[E_STALE_ANCHOR]`.
 
-This repo reduces that friction with a smarter wrapper and a Pi-facing tool.
+This package provides reusable helpers for retrying those edits and for expressing common semantic operations such as “replace the unique occurrence” or “replace between these boundaries.”
+
+## Capabilities
+
+- `replaceAnchoredWithRetry()` retries an anchored edit using Pi-style stale-anchor suggestions.
+- `replaceBetween()` replaces a bounded region by matching start/end content.
+- `replaceUnique()` replaces one exact unique occurrence.
+- Local hashline adapter reads and edits files in Pi-shaped format.
+- Pi extension entrypoint registers the `smart_edit` tool.
+- CLI entrypoint `pi-smart-edit` exposes the same core operations outside Pi.
+
+## Repository layout
+
+```text
+src/
+  anchors.ts             stale-anchor parsing helpers
+  cli.ts                 command-line interface
+  extension.ts           Pi extension registration for smart_edit
+  filesystem-client.ts   local hashline read/edit adapter
+  smart-edit.ts          retry/session and semantic edit helpers
+  types.ts               shared operation types
+examples/                copyable smart_edit payloads and prompts
+test/                    node:test coverage
+tsconfig.json            TypeScript build config
+```
+
+## Install
+
+As a Pi package:
+
+```bash
+pi install git:github.com/T50-Systems/pi-smart-edit
+```
+
+For local development:
+
+```bash
+git clone https://github.com/T50-Systems/pi-smart-edit
+cd pi-smart-edit
+npm install
+npm run build
+```
 
 ## CLI usage
 
-### Replace unique text
+Replace one unique text occurrence:
 
 ```bash
 pi-smart-edit replace-unique \
@@ -50,73 +67,53 @@ pi-smart-edit replace-unique \
   --new "const x = 2;"
 ```
 
-### Replace between two anchored contents
+Replace between two boundary lines:
 
 ```bash
 pi-smart-edit replace-between \
   --path src/file.ts \
-  --start "fn start() {" \
+  --start "function build() {" \
   --end "}" \
-  --lines-json '["fn start() {", "  return 42;", "}"]'
+  --lines-json '["function build() {", "  return 42;", "}"]'
 ```
 
-### Retry an anchored edit
+Retry an anchored edit:
 
 ```bash
 pi-smart-edit anchored-retry \
   --path src/file.ts \
-  --pos '12#ABCD1234:old line' \
+  --pos '12#AB:old line' \
   --op replace \
   --lines-json '["new line"]'
 ```
 
-## Use from Pi
+## Pi tool modes
 
-This package exposes a Pi extension entrypoint:
-
-- `dist/extension.js`
-
-The extension registers a tool named:
-
-- `smart_edit`
-
-### Tool modes
+The extension registers `smart_edit` with these modes:
 
 - `replace_unique`
 - `replace_between`
 - `anchored_retry`
 
-### Example Pi usage intent
-
-Ask Pi to use the `smart_edit` tool when:
-- a normal anchored edit went stale
-- you want boundary-based replacement
-- you want a safer retry loop around hashline editing
-
-### Examples
-
-- `examples/smart_edit-examples.md` contains ready-to-copy prompts and parameter payloads for all three modes.
-
-## Install as a Pi package
-
-Intended flow:
-
-```bash
-pi install git:github.com/T50-Systems/pi-smart-edit
-```
-
-Or load locally during development with an extension path after build.
+See [`examples/smart_edit-examples.md`](examples/smart_edit-examples.md) for ready-to-copy payloads and prompt patterns.
 
 ## Development
 
 ```bash
 npm install
+npm run build
 npm run check
 npm test
 ```
 
+`npm test` builds first through `pretest` and then runs the compiled `node:test` suite.
+
 ## Notes
 
-- The local adapter is intentionally conservative and Pi-shaped.
-- The extension is the Pi-facing integration point.
-- This is aimed at practical editing ergonomics, not full diff/merge tooling.
+- This is a conservative edit helper, not a full diff/merge system.
+- The local adapter intentionally mirrors Pi-style hashline behavior.
+- The package depends on [`pi-anchor-edit-core`](https://github.com/T50-Systems/pi-anchor-edit-core) for shared anchor/edit primitives.
+
+## License
+
+MIT
