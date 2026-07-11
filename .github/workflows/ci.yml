@@ -14,12 +14,13 @@ concurrency:
 
 jobs:
   validate:
-    name: Node ${{ matrix.node-version }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    name: Validate (${{ matrix.os }}, Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         node-version: [22, 24]
 
     steps:
@@ -43,6 +44,12 @@ jobs:
 
       - name: Enforce coverage budgets
         run: npm run coverage
+
+      - name: Verify repository policy and workflow YAML
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 22
+        run: |
+          npm run verify:policy
+          npm run verify:workflows
 
       - name: Verify release package
         if: matrix.node-version == 22

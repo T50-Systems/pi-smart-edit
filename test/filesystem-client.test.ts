@@ -40,3 +40,16 @@ test('filesystem client detects stale anchor and succeeds after refreshed edit',
   const finalText = await readFile(path, 'utf8');
   assert.equal(finalText, 'alpha\npatched');
 });
+
+test('filesystem client preserves CRLF line endings', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pi-smart-edit-crlf-'));
+  const path = join(dir, 'crlf.txt');
+  await writeFile(path, 'alpha\r\nbeta\r\n', 'utf8');
+
+  const client = new FilesystemPiClient();
+  const snapshot = await client.read({ path });
+  const pos = snapshot.split(/\r?\n/)[1] as string;
+  await client.edit({ path, edits: [{ op: 'replace', pos, lines: ['patched'] }] });
+
+  assert.equal(await readFile(path, 'utf8'), 'alpha\r\npatched\r\n');
+});

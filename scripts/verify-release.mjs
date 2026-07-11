@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { verifyRuntimeDependencies } from './verify-dependencies.mjs';
 
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const changelog = await readFile(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
@@ -12,6 +13,7 @@ assert.equal(
   packageJson.version,
   'package-lock.json root package version must match package.json',
 );
+verifyRuntimeDependencies(packageJson, packageLock);
 
 assert.match(changelog, /^## \[Unreleased\]$/m, 'CHANGELOG.md must contain an [Unreleased] section');
 assert.match(

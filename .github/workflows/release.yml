@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vX.Y.Z tag to verify
+        required: true
+        type: string
+      create_release:
+        description: Create the GitHub release after verification
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+      package-file: ${{ steps.pack.outputs.package-file }}
+    steps:
+      - name: Check out tagged revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve and verify release metadata
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          node scripts/prepare-release.mjs "$RELEASE_TAG" --output release-notes.md
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Run release checks
+        run: |
+          npm run check
+          npm test
+          npm run coverage
+          npm run benchmark
+          npm run verify:policy
+          npm run verify:workflows
+          npm audit --omit=dev --audit-level=high
+          npm run verify:release
+
+      - name: Build package artifact
+        id: pack
+        run: |
+          npm pack --json > pack-report.json
+          node --input-type=module -e "import{readFile,appendFile}from'node:fs/promises';const [entry]=JSON.parse(await readFile('pack-report.json','utf8'));await appendFile(process.env.GITHUB_OUTPUT,'package-file='+entry.filename+'\n')"
+
+      - name: Upload verified package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ steps.metadata.outputs.tag }}
+          path: |
+            ${{ steps.pack.outputs.package-file }}
+            release-notes.md
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Create GitHub release
+    needs: verify
+    if: github.event_name == 'push' || inputs.create_release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified package
+        uses: actions/download-artifact@v4
+        with:
+          name: package-${{ needs.verify.outputs.tag }}
+
+      - name: Refuse to replace an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing to replace it." >&2
+            exit 1
+          fi
+
+      - name: Create release with scoped notes and package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          PACKAGE_FILE: ${{ needs.verify.outputs.package-file }}
+        run: gh release create "$RELEASE_TAG" "$PACKAGE_FILE" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$RELEASE_TAG" --notes-file release-notes.md
