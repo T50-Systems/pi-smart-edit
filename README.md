@@ -94,11 +94,16 @@ npm run check
 npm test
 npm run coverage
 npm run benchmark
+npm run verify:dependencies
+npm run verify:policy
+npm run verify:workflows
 npm audit --omit=dev --audit-level=high
 npm run verify:release
 ```
 
-`npm run verify:release` builds the package, checks changelog/version structure, and inspects `npm pack --dry-run` contents. The benchmark is a regression budget for in-process policy overhead, not filesystem throughput.
+`npm run verify:release` builds the package, checks immutable runtime dependencies and changelog/version structure, and inspects `npm pack --dry-run` contents. Tag-triggered GitHub releases attach the verified tarball without publishing to npm; see [the release process](docs/RELEASING.md). The benchmark is a regression budget for in-process policy overhead, not filesystem throughput.
+
+CI tests Node.js 22 and 24 on the latest Ubuntu, Windows, and macOS runners. Cross-platform tests cover paths with spaces, shell-free CLI invocation, CRLF preservation, and capability-based permission behavior; the POSIX permission fixture is skipped on Windows because Windows does not enforce POSIX write bits.
 
 ## Limits
 
