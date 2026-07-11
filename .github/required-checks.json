@@ -1,0 +1,15 @@
+{
+  "branch": "main",
+  "strict": true,
+  "required_checks": [
+    "Validate (ubuntu-latest, Node 22)",
+    "Validate (ubuntu-latest, Node 24)",
+    "Validate (windows-latest, Node 22)",
+    "Validate (windows-latest, Node 24)",
+    "Validate (macos-latest, Node 22)",
+    "Validate (macos-latest, Node 24)"
+  ],
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "required_approvals": 0
+}
