@@ -1,24 +1,10 @@
-# smart_edit examples
+# `smart_edit` recipes
 
-Tool name:
+The Pi extension registers the `smart_edit` tool with `replace_unique`, `replace_between`, and `anchored_retry` modes. Run these recipes in a disposable or version-controlled file and inspect `git diff` afterward.
 
-- `smart_edit`
+## Replace one unique occurrence
 
-## Modes
-
-- `replace_unique`
-- `replace_between`
-- `anchored_retry`
-
-## Natural-language prompts
-
-### 1) replace_unique
-
-Prompt:
-
-> Usa `smart_edit` en modo `replace_unique` para cambiar `const x = 1;` por `const x = 2;` en `src/file.ts`.
-
-Params:
+Use this for a small, exact semantic change:
 
 ```json
 {
@@ -29,13 +15,15 @@ Params:
 }
 ```
 
-### 2) replace_between
+Expected result: one occurrence changes. Zero or multiple occurrences fail instead of guessing.
 
-Prompt:
+Equivalent CLI:
 
-> Usa `smart_edit` en modo `replace_between` para reemplazar el bloque entre `function demo() {` y `}` en `src/file.ts`.
+```bash
+pi-smart-edit replace-unique --path src/file.ts --old "const x = 1;" --new "const x = 2;"
+```
 
-Params:
+## Replace an exact bounded block
 
 ```json
 {
@@ -43,21 +31,19 @@ Params:
   "mode": "replace_between",
   "startContent": "function demo() {",
   "endContent": "}",
-  "lines": [
-    "function demo() {",
-    "  return 42;",
-    "}"
-  ]
+  "lines": ["function demo() {", "  return 42;", "}"]
 }
 ```
 
-### 3) anchored_retry
+The boundaries must appear in the first 400 lines returned by the session read. If either is missing, use fresh anchored lines rather than broadening the boundaries.
 
-Prompt:
+Equivalent CLI:
 
-> Usa `smart_edit` en modo `anchored_retry` para rehacer un edit con anchors stale en `src/file.ts`.
+```bash
+pi-smart-edit replace-between --path src/file.ts --start "function demo() {" --end "}" --lines-json '["function demo() {","  return 42;","}"]'
+```
 
-Params:
+## Recover one stale anchored edit
 
 ```json
 {
@@ -65,8 +51,27 @@ Params:
   "mode": "anchored_retry",
   "op": "replace",
   "pos": "12#ABCD1234:old line",
-  "lines": [
-    "new line"
-  ]
+  "lines": ["new line"]
 }
 ```
+
+The helper retries at most once and only when a suggested fresh anchor has the exact original content. If it cannot identify that content, re-read and inspect the file.
+
+Equivalent CLI:
+
+```bash
+pi-smart-edit anchored-retry --path src/file.ts --op replace --pos '12#ABCD1234:old line' --lines-json '["new line"]'
+```
+
+## Extension-author integration
+
+The same policy is available as a library:
+
+```ts
+import { FilesystemPiClient, SmartEditSession } from '@t50-systems/pi-smart-edit';
+
+const edits = new SmartEditSession(new FilesystemPiClient());
+await edits.replaceUnique('src/file.ts', 'const x = 1;', 'const x = 2;');
+```
+
+See [configuration and recovery guidance](../docs/OPERATIONS.md) before wrapping errors or adding retries.

@@ -4,13 +4,27 @@
   "description": "Smart editing helpers for Pi with stale-anchor recovery and semantic patch workflows",
   "type": "module",
   "bin": {
-    "pi-smart-edit": "dist/cli.js"
+    "pi-smart-edit": "dist/src/cli.js"
   },
+  "files": [
+    "dist/src",
+    "docs",
+    "examples",
+    "ARCHITECTURE.md",
+    "VISION.md",
+    "ROADMAP.md",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "node --test dist/test/**/*.test.js",
-    "pretest": "npm run build"
+    "pretest": "npm run build",
+    "coverage": "npm run build && node --test --experimental-test-coverage --test-coverage-include=dist/src/**/*.js --test-coverage-lines=90 --test-coverage-functions=90 --test-coverage-branches=80 dist/test/**/*.test.js",
+    "benchmark": "npm run build && node dist/benchmark/smart-edit.bench.js",
+    "verify:release": "npm run build && node scripts/verify-release.mjs"
   },
   "keywords": [
     "pi",
@@ -33,7 +47,7 @@
   },
   "pi": {
     "extensions": [
-      "./dist/extension.js"
+      "./dist/src/extension.js"
     ]
   }
 }
