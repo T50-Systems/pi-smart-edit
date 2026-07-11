@@ -41,5 +41,12 @@ jobs:
       - name: Build and test
         run: npm test
 
+      - name: Enforce coverage budgets
+        run: npm run coverage
+
+      - name: Verify release package
+        if: matrix.node-version == 22
+        run: npm run verify:release
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high

@@ -5,7 +5,7 @@ Thanks for improving `pi-smart-edit`. Keep changes small, testable, and focused 
 ## Prerequisites
 
 - Git
-- Node.js 20, 22, or 24 (the versions exercised in CI)
+- Node.js 22 or 24 (the versions exercised in CI)
 - npm, included with Node.js
 
 The project does not require environment variables or external services for local development and tests.
@@ -18,9 +18,12 @@ cd pi-smart-edit
 npm ci
 npm run check
 npm test
+npm run coverage
+npm run benchmark
+npm run verify:release
 ```
 
-`npm run check` performs a TypeScript typecheck without emitting files. `npm test` first builds into `dist/`, then runs the compiled `node:test` suite.
+`npm run check` performs a TypeScript typecheck without emitting files. `npm test` first builds into `dist/`, then runs the compiled `node:test` suite. Coverage, benchmark, and release-package checks are documented in [VISION.md](VISION.md) and [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Development workflow
 

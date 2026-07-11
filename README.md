@@ -1,93 +1,59 @@
 # pi-smart-edit
 
-Smart editing helpers for Pi workflows that frequently hit stale anchors or need a safer semantic edit wrapper.
+Conservative smart editing for Pi workflows that hit stale hashline anchors or need exact semantic replacements.
 
-`@t50-systems/pi-smart-edit` combines a local hashline filesystem adapter, retry helpers, a Pi extension tool, and a small CLI. It is designed to sit above anchor-based read/edit tooling and recover from common `[E_STALE_ANCHOR]` failures by re-reading suggested anchors and retrying carefully.
+`@t50-systems/pi-smart-edit` provides one editing policy through a library, the Pi `smart_edit` tool, and a CLI. It retries a stale anchored edit at most once and refuses ambiguous recovery.
 
-## Why this exists
+## Quickstart
 
-A common Pi editing loop is:
-
-1. `read` a file and receive `LINE#HASH:content` anchors.
-2. `edit` one section.
-3. Formatting, generation, or another edit changes the file.
-4. A later edit uses stale anchors and Pi returns `[E_STALE_ANCHOR]`.
-
-This package provides reusable helpers for retrying those edits and for expressing common semantic operations such as “replace the unique occurrence” or “replace between these boundaries.”
-
-## Capabilities
-
-- `replaceAnchoredWithRetry()` retries an anchored edit using Pi-style stale-anchor suggestions.
-- `replaceBetween()` replaces a bounded region by matching start/end content.
-- `replaceUnique()` replaces one exact unique occurrence.
-- Local hashline adapter reads and edits files in Pi-shaped format.
-- Pi extension entrypoint registers the `smart_edit` tool.
-- CLI entrypoint `pi-smart-edit` exposes the same core operations outside Pi.
-
-## Repository layout
-
-```text
-src/
-  anchors.ts             stale-anchor parsing helpers
-  cli.ts                 command-line interface
-  extension.ts           Pi extension registration for smart_edit
-  filesystem-client.ts   local hashline read/edit adapter
-  smart-edit.ts          retry/session and semantic edit helpers
-  types.ts               shared operation types
-examples/                copyable smart_edit payloads and prompts
-test/                    node:test coverage
-tsconfig.json            TypeScript build config
-```
-
-## Install
-
-As a Pi package:
+Prerequisites: Node.js 22 or 24 and Pi.
 
 ```bash
 pi install git:github.com/T50-Systems/pi-smart-edit
 ```
 
-For local development:
+Restart Pi if required, then ask it to use the installed tool:
+
+```text
+Use smart_edit in replace_unique mode to change "const x = 1;" to "const x = 2;" in src/file.ts.
+```
+
+Inspect `git diff` after the operation. A successful edit changes exactly one occurrence; a missing or duplicated match fails rather than guessing. See [copyable tool and CLI recipes](examples/smart_edit-examples.md) and the [recovery guide](docs/OPERATIONS.md).
+
+For a verified contributor setup:
 
 ```bash
-git clone https://github.com/T50-Systems/pi-smart-edit
+git clone https://github.com/T50-Systems/pi-smart-edit.git
 cd pi-smart-edit
-npm install
-npm run build
+npm ci
+npm test
 ```
 
-## CLI usage
+## Why this exists
 
-Replace one unique text occurrence:
+A common Pi editing loop reads a file, receives `LINE#HASH:content` anchors, and later finds those anchors stale because another operation changed the file. This package centralizes conservative retry and semantic-replacement behavior instead of duplicating it across prompts and extensions.
+
+## Capabilities
+
+- Retry one anchored edit using exact Pi-style stale-anchor suggestions.
+- Replace one exact unique occurrence.
+- Replace a region between exact content boundaries.
+- Use a local Pi-compatible filesystem adapter.
+- Invoke the same policy from a Pi tool, CLI, or TypeScript library.
+
+## CLI
 
 ```bash
-pi-smart-edit replace-unique \
-  --path src/file.ts \
-  --old "const x = 1;" \
-  --new "const x = 2;"
+pi-smart-edit replace-unique --path src/file.ts --old "const x = 1;" --new "const x = 2;"
+
+pi-smart-edit replace-between --path src/file.ts --start "function build() {" --end "}" --lines-json '["function build() {","  return 42;","}"]'
+
+pi-smart-edit anchored-retry --path src/file.ts --pos '12#AB:old line' --op replace --lines-json '["new line"]'
 ```
 
-Replace between two boundary lines:
+Run `npm install -g git+https://github.com/T50-Systems/pi-smart-edit.git` if you want the CLI executable globally rather than the Pi package.
 
-```bash
-pi-smart-edit replace-between \
-  --path src/file.ts \
-  --start "function build() {" \
-  --end "}" \
-  --lines-json '["function build() {", "  return 42;", "}"]'
-```
-
-Retry an anchored edit:
-
-```bash
-pi-smart-edit anchored-retry \
-  --path src/file.ts \
-  --pos '12#AB:old line' \
-  --op replace \
-  --lines-json '["new line"]'
-```
-
-## Pi tool modes
+## Pi tool
 
 The extension registers `smart_edit` with these modes:
 
@@ -95,27 +61,52 @@ The extension registers `smart_edit` with these modes:
 - `replace_between`
 - `anchored_retry`
 
-See [`examples/smart_edit-examples.md`](examples/smart_edit-examples.md) for ready-to-copy payloads and prompt patterns.
+See [`examples/smart_edit-examples.md`](examples/smart_edit-examples.md) for complete payloads, expected outcomes, CLI equivalents, and library integration.
 
-## Development
+## Project documentation
+
+- [Vision and measurable success targets](VISION.md)
+- [Architecture and module boundaries](ARCHITECTURE.md)
+- [Configuration, diagnostics, and recovery](docs/OPERATIONS.md)
+- [Release process](docs/RELEASING.md)
+- [Roadmap governance](ROADMAP.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md)
+
+## Repository layout
+
+```text
+src/          core policy, public contracts, CLI, and Pi adapter
+test/         node:test unit and integration tests
+benchmark/    reproducible core-policy performance baseline
+examples/     copyable adoption recipes
+docs/         operator and release guidance
+scripts/      repository verification tooling
+```
+
+Keep filesystem behavior in the adapter, editing policy in `smart-edit.ts`, and surface translation in `cli.ts`/`extension.ts`. See [ARCHITECTURE.md](ARCHITECTURE.md) before adding a new operation.
+
+## Validation
 
 ```bash
 npm ci
-npm run build
 npm run check
 npm test
+npm run coverage
+npm run benchmark
 npm audit --omit=dev --audit-level=high
+npm run verify:release
 ```
 
-`npm test` builds first through `pretest` and then runs the compiled `node:test` suite. See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, project boundaries, and the shortest path from clone to a verified change.
+`npm run verify:release` builds the package, checks changelog/version structure, and inspects `npm pack --dry-run` contents. The benchmark is a regression budget for in-process policy overhead, not filesystem throughput.
 
-## Notes
+## Limits
 
-- This is a conservative edit helper, not a full diff/merge system.
-- The local adapter intentionally mirrors Pi-style hashline behavior.
-- The package depends on [`pi-anchor-edit-core`](https://github.com/T50-Systems/pi-anchor-edit-core) for shared anchor/edit primitives.
-
-Security concerns should be reported privately as described in [SECURITY.md](SECURITY.md).
+- This is a conservative edit helper, not a diff or merge system.
+- Boundary lookup reads the first 400 lines by default.
+- Automatic stale-anchor recovery retries once only.
+- The package emits no telemetry and requires no secrets or remote service.
+- Shared anchor/edit primitives come from [`pi-anchor-edit-core`](https://github.com/T50-Systems/pi-anchor-edit-core).
 
 ## License
 
