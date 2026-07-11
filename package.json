@@ -20,6 +20,9 @@
     "tooling"
   ],
   "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "author": "T50-Systems",
   "dependencies": {
     "pi-anchor-edit-core": "git+https://github.com/T50-Systems/pi-anchor-edit-core.git"

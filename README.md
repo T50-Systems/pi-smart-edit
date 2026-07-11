@@ -100,19 +100,22 @@ See [`examples/smart_edit-examples.md`](examples/smart_edit-examples.md) for rea
 ## Development
 
 ```bash
-npm install
+npm ci
 npm run build
 npm run check
 npm test
+npm audit --omit=dev --audit-level=high
 ```
 
-`npm test` builds first through `pretest` and then runs the compiled `node:test` suite.
+`npm test` builds first through `pretest` and then runs the compiled `node:test` suite. See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, project boundaries, and the shortest path from clone to a verified change.
 
 ## Notes
 
 - This is a conservative edit helper, not a full diff/merge system.
 - The local adapter intentionally mirrors Pi-style hashline behavior.
 - The package depends on [`pi-anchor-edit-core`](https://github.com/T50-Systems/pi-anchor-edit-core) for shared anchor/edit primitives.
+
+Security concerns should be reported privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
