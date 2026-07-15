@@ -21,7 +21,7 @@ There is no service, database, background worker, network control plane, or runt
 | `src/anchors.ts` | Public re-exports of shared anchor primitives | Filesystem I/O |
 | `src/filesystem-client.ts` | Public filesystem adapter re-export | Recovery policy |
 | `src/types.ts` | Public port and operation contracts | Runtime behavior |
-| `src/extension.ts` | Translate Pi tool parameters/results | Duplicate editing policy |
+| `src/extension.ts` | Translate Pi tool parameters/results, resolve `ctx.cwd` targets, and join Pi's per-file mutation queue | Duplicate editing policy or leak Pi host APIs into library/CLI |
 | `src/cli.ts` | Parse CLI arguments, print results/errors, choose exit status | Direct filesystem mutation |
 
 ## Control flows
@@ -45,6 +45,10 @@ There is no service, database, background worker, network control plane, or runt
 
 The one-retry limit is intentional: repeated retries could hide concurrent edits.
 
+### Pi extension mutation transaction
+
+The Pi adapter resolves the target to an absolute `ctx.cwd`-relative path and makes `withFileMutationQueue` the outermost operation. Pi canonicalizes existing queue targets, so path aliases serialize together. The queue owns the entire semantic operation, including `replaceBetween` reads and both attempts of `replaceAnchoredWithRetry`; failures release ownership. `SmartEditSession`, the CLI, and the public library remain unaware of the Pi host queue.
+
 ## Extension points and invariants
 
 - Implement `PiClient` to use the policy with another Pi-compatible adapter.
@@ -58,6 +62,7 @@ The one-retry limit is intentional: repeated retries could hide concurrent edits
 - `test/anchors.test.ts`: shared output parsing contract.
 - `test/filesystem-client.test.ts`: real temporary-file adapter behavior.
 - `test/smart-edit.test.ts`: policy, retry, and error paths.
+- `test/extension.test.ts`: Pi registration, path resolution, same-file serialization, different-file concurrency, retry boundary, and rejection release.
 - `npm run coverage`: coverage budgets.
 - `npm run benchmark`: in-process policy overhead budget.
 - `npm run verify:release`: changelog and package-content contract.

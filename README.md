@@ -6,7 +6,7 @@ Conservative smart editing for Pi workflows that hit stale hashline anchors or n
 
 ## Quickstart
 
-Prerequisites: Node.js 22 or 24 and Pi.
+Prerequisites: Node.js 22 or 24 and `@earendil-works/pi-coding-agent` 0.74.0 or newer.
 
 ```bash
 pi install git:github.com/T50-Systems/pi-smart-edit
@@ -40,6 +40,7 @@ A common Pi editing loop reads a file, receives `LINE#HASH:content` anchors, and
 - Replace a region between exact content boundaries.
 - Use a local Pi-compatible filesystem adapter.
 - Invoke the same policy from a Pi tool, CLI, or TypeScript library.
+- Serialize the complete Pi extension read-modify-write/retry transaction with Pi's per-file mutation queue.
 
 ## CLI
 
@@ -62,6 +63,10 @@ The extension registers `smart_edit` with these modes:
 - `anchored_retry`
 
 See [`examples/smart_edit-examples.md`](examples/smart_edit-examples.md) for complete payloads, expected outcomes, CLI equivalents, and library integration.
+
+The Pi adapter resolves relative paths from the tool call's `ctx.cwd`, normalizes Pi's leading `@` path prefix, and submits the absolute target to `withFileMutationQueue`. Pi canonicalizes existing targets with `realpath`, so relative, absolute, and symlink aliases share a queue while unrelated files remain concurrent. The library and CLI do not import or depend on Pi's host queue.
+
+Compatibility evidence: `withFileMutationQueue` first shipped in Pi 0.61.0 under the former `@mariozechner/pi-coding-agent` namespace; 0.60.0 does not export it. The current `@earendil-works/pi-coding-agent` namespace begins at 0.74.0, which already exports the helper, so the declared current-host peer range is `>=0.74.0`.
 
 ## Project documentation
 

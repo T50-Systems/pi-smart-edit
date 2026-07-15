@@ -1,3 +1,5 @@
+import { withFileMutationQueue } from '@earendil-works/pi-coding-agent';
+import { resolve } from 'node:path';
 import { Type, type Static } from 'typebox';
 import { FilesystemPiClient } from './filesystem-client.js';
 import { SmartEditSession } from './smart-edit.js';
@@ -60,10 +62,20 @@ type SmartEditTool = {
   label: string;
   description: string;
   parameters: typeof smartEditParameters;
-  execute(toolCallId: string, params: SmartEditParameters): Promise<{
+  execute(
+    toolCallId: string,
+    params: SmartEditParameters,
+    signal: AbortSignal | undefined,
+    onUpdate: unknown,
+    ctx: SmartEditContext,
+  ): Promise<{
     content: Array<{ type: 'text'; text: string }>;
     details: { mode: SmartEditParameters['mode']; path: string };
   }>;
+};
+
+type SmartEditContext = {
+  cwd: string;
 };
 
 export type SmartEditExtensionApi = {
@@ -76,47 +88,60 @@ export default function (pi: SmartEditExtensionApi) {
     label: 'Smart Edit',
     description: 'Pi-oriented smart editing with stale-anchor recovery and semantic helpers',
     parameters: smartEditParameters,
-    async execute(_toolCallId: string, params: SmartEditParameters) {
-      const session = new SmartEditSession(new FilesystemPiClient());
+    async execute(
+      _toolCallId: string,
+      params: SmartEditParameters,
+      _signal: AbortSignal | undefined,
+      _onUpdate: unknown,
+      ctx: SmartEditContext,
+    ) {
+      const requestedPath = params.path.startsWith('@') ? params.path.slice(1) : params.path;
+      const targetPath = resolve(ctx.cwd, requestedPath);
 
-      if (params.mode === 'replace_unique') {
-        return {
-          content: [{ type: 'text', text: await session.replaceUnique(params.path, params.oldText, params.newText) }],
-          details: { mode: params.mode, path: params.path },
-        };
-      }
+      return withFileMutationQueue(targetPath, async () => {
+        const session = new SmartEditSession(new FilesystemPiClient());
 
-      if (params.mode === 'replace_between') {
+        if (params.mode === 'replace_unique') {
+          return {
+            content: [
+              { type: 'text' as const, text: await session.replaceUnique(targetPath, params.oldText, params.newText) },
+            ],
+            details: { mode: params.mode, path: params.path },
+          };
+        }
+
+        if (params.mode === 'replace_between') {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: await session.replaceBetween(
+                  targetPath,
+                  params.startContent,
+                  params.endContent,
+                  params.lines,
+                ),
+              },
+            ],
+            details: { mode: params.mode, path: params.path },
+          };
+        }
+
         return {
           content: [
             {
-              type: 'text',
-              text: await session.replaceBetween(
-                params.path,
-                params.startContent,
-                params.endContent,
-                params.lines,
-              ),
+              type: 'text' as const,
+              text: await session.replaceAnchoredWithRetry(targetPath, {
+                op: params.op,
+                pos: params.pos,
+                end: params.op === 'replace' ? params.end : undefined,
+                lines: params.lines,
+              }),
             },
           ],
           details: { mode: params.mode, path: params.path },
         };
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: await session.replaceAnchoredWithRetry(params.path, {
-              op: params.op,
-              pos: params.pos,
-              end: params.op === 'replace' ? params.end : undefined,
-              lines: params.lines,
-            }),
-          },
-        ],
-        details: { mode: params.mode, path: params.path },
-      };
+      });
     },
   });
 }

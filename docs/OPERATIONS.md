@@ -15,6 +15,14 @@ The package has no required environment variables, secrets, remote endpoints, or
 
 Do not put secrets in paths, replacement text, fixtures, command history, issue reports, or diagnostic output.
 
+## Pi path and concurrency semantics
+
+The Pi extension resolves repository-relative paths against the invocation's `ctx.cwd`; absolute paths remain absolute, and a leading `@` is stripped to match Pi tool-path input. It then passes that absolute target to Pi's canonical `withFileMutationQueue` helper before creating the edit session.
+
+For an existing target, Pi derives the queue key with `realpath`, so relative paths, absolute paths, file symlinks, and symlinked parent-directory aliases converge on the same per-file queue. For a missing target, Pi falls back to the resolved absolute path because there is no real path yet. The requested resolved path still goes to `FilesystemPiClient`, so its existing filesystem and symlink write behavior is unchanged.
+
+The queue covers every `smart_edit` mode's complete transaction: any boundary read, read-modify-write work, the first anchored attempt, and the bounded stale-anchor retry. A rejection releases the queue in Pi, and operations for different files remain concurrent. Library and CLI calls stay host-independent and therefore do not join Pi's cross-tool mutation queue.
+
 ## Observable signals
 
 The package emits no telemetry. Operators can inspect deterministic local signals:
