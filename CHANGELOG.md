@@ -15,6 +15,11 @@ All notable changes to this project are documented in this file. The format foll
 
 - Tightened the `smart_edit` schema to discriminated mode and operation contracts with incompatible fields rejected before execution.
 - Expanded CI to Node.js 22 and 24 on Ubuntu, Windows, and macOS with stable required-check names.
+- Declared `@earendil-works/pi-coding-agent >=0.74.0` as the Pi host peer range while keeping library and CLI entry points host-independent.
+
+### Fixed
+
+- Serialized each Pi `smart_edit` read-modify-write and stale-retry transaction with Pi's canonical per-file mutation queue, including relative, absolute, and symlink aliases.
 
 ### Security
 
