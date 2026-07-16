@@ -17,9 +17,10 @@ There is no service, database, background worker, network control plane, or runt
 
 | Module | Responsibility | Must not own |
 |---|---|---|
+| `src/errors.ts` | Stable public taxonomy, redacted error metadata, and centralized normalization | Editing/retry policy or surface-specific presentation |
 | `src/smart-edit.ts` | Editing policy, semantic operations, one bounded stale-anchor retry | CLI parsing or Pi registration |
 | `src/anchors.ts` | Public re-exports of shared anchor primitives | Filesystem I/O |
-| `src/filesystem-client.ts` | Public filesystem adapter re-export | Recovery policy |
+| `src/filesystem-client.ts` | Normalize the shared filesystem adapter's results and thrown failures | Recovery policy |
 | `src/types.ts` | Public port and operation contracts | Runtime behavior |
 | `src/extension.ts` | Translate Pi tool parameters/results, resolve `ctx.cwd` targets, and join Pi's per-file mutation queue | Duplicate editing policy or leak Pi host APIs into library/CLI |
 | `src/cli.ts` | Parse CLI arguments, print results/errors, choose exit status | Direct filesystem mutation |
@@ -45,6 +46,12 @@ There is no service, database, background worker, network control plane, or runt
 
 The one-retry limit is intentional: repeated retries could hide concurrent edits.
 
+### Error normalization and compatibility
+
+Core `[E_*]` results, thrown core errors, policy failures, filesystem errors, Pi schema failures, and queue failures converge in `src/errors.ts`. Library and filesystem adapter failures reject with `SmartEditError`; the CLI only adds deterministic coded stderr formatting; the Pi adapter propagates the same error and safe details when the host preserves them. Structured details are limited to `code` and `category` and never include paths, anchors, content, raw causes, or queue keys.
+
+The public taxonomy is additive and existing code meanings are not repurposed. Human-readable diagnostics and the bounded stale-anchor recovery flow remain intact, but messages are not a machine contract. See [`docs/ERRORS.md`](docs/ERRORS.md) for the taxonomy and migration decision.
+
 ### Pi extension mutation transaction
 
 The Pi adapter resolves the target to an absolute `ctx.cwd`-relative path and makes `withFileMutationQueue` the outermost operation. Pi canonicalizes existing queue targets, so path aliases serialize together. The queue owns the entire semantic operation, including `replaceBetween` reads and both attempts of `replaceAnchoredWithRetry`; failures release ownership. `SmartEditSession`, the CLI, and the public library remain unaware of the Pi host queue.
@@ -63,6 +70,7 @@ The Pi adapter resolves the target to an absolute `ctx.cwd`-relative path and ma
 - `test/filesystem-client.test.ts`: real temporary-file adapter behavior.
 - `test/smart-edit.test.ts`: policy, retry, and error paths.
 - `test/extension.test.ts`: Pi registration, path resolution, same-file serialization, different-file concurrency, retry boundary, and rejection release.
+- `test/errors.test.ts`: taxonomy, normalization, redaction, adapter parity, and failure nonmutation.
 - `npm run coverage`: coverage budgets.
 - `npm run benchmark`: in-process policy overhead budget.
 - `npm run verify:release`: changelog and package-content contract.

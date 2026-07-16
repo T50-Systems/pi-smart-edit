@@ -4,6 +4,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { FilesystemPiClient } from '../src/filesystem-client.js';
+import { SmartEditError, SmartEditErrorCode } from '../src/errors.js';
 
 test('filesystem client reads hashline format', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'pi-smart-edit-'));
@@ -27,11 +28,16 @@ test('filesystem client detects stale anchor and succeeds after refreshed edit',
   const stalePos = firstRead.split(/\r?\n/)[1] as string;
 
   await writeFile(path, 'alpha\ngamma', 'utf8');
-  const stale = await client.edit({
-    path,
-    edits: [{ op: 'replace', pos: stalePos, lines: ['patched'] }],
-  });
-  assert.match(stale, /\[E_STALE_ANCHOR\]/);
+  await assert.rejects(
+    client.edit({
+      path,
+      edits: [{ op: 'replace', pos: stalePos, lines: ['patched'] }],
+    }),
+    (error: unknown) =>
+      error instanceof SmartEditError &&
+      error.code === SmartEditErrorCode.StaleAnchor &&
+      /\[E_STALE_ANCHOR\]/.test(error.message),
+  );
 
   const freshRead = await client.read({ path });
   const freshPos = freshRead.split(/\r?\n/)[1] as string;
