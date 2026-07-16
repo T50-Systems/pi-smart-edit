@@ -1,8 +1,10 @@
 import { withFileMutationQueue } from '@earendil-works/pi-coding-agent';
 import { resolve } from 'node:path';
 import { Type, type Static } from 'typebox';
+import { Check } from 'typebox/value';
 import { FilesystemPiClient } from './filesystem-client.js';
 import { SmartEditSession } from './smart-edit.js';
+import { normalizeSmartEditError, SmartEditError, SmartEditErrorCode } from './errors.js';
 
 const strictObjectOptions = { additionalProperties: false } as const;
 
@@ -82,6 +84,14 @@ export type SmartEditExtensionApi = {
   registerTool(tool: SmartEditTool): void;
 };
 
+async function withNormalizedMutationQueue<T>(targetPath: string, action: () => Promise<T>): Promise<T> {
+  try {
+    return await withFileMutationQueue(targetPath, action);
+  } catch (error) {
+    throw normalizeSmartEditError(error, SmartEditErrorCode.QueueFailure);
+  }
+}
+
 export default function (pi: SmartEditExtensionApi) {
   pi.registerTool({
     name: 'smart_edit',
@@ -95,10 +105,14 @@ export default function (pi: SmartEditExtensionApi) {
       _onUpdate: unknown,
       ctx: SmartEditContext,
     ) {
+      if (!Check(smartEditParameters, params)) {
+        throw new SmartEditError(SmartEditErrorCode.SchemaInvalid, 'smart_edit parameters do not match the public schema');
+      }
+
       const requestedPath = params.path.startsWith('@') ? params.path.slice(1) : params.path;
       const targetPath = resolve(ctx.cwd, requestedPath);
 
-      return withFileMutationQueue(targetPath, async () => {
+      return withNormalizedMutationQueue(targetPath, async () => {
         const session = new SmartEditSession(new FilesystemPiClient());
 
         if (params.mode === 'replace_unique') {

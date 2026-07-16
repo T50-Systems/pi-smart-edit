@@ -41,6 +41,7 @@ A common Pi editing loop reads a file, receives `LINE#HASH:content` anchors, and
 - Use a local Pi-compatible filesystem adapter.
 - Invoke the same policy from a Pi tool, CLI, or TypeScript library.
 - Serialize the complete Pi extension read-modify-write/retry transaction with Pi's per-file mutation queue.
+- Handle the same stable, structured error taxonomy across all entry surfaces.
 
 ## CLI
 
@@ -73,6 +74,7 @@ Compatibility evidence: `withFileMutationQueue` first shipped in Pi 0.61.0 under
 - [Vision and measurable success targets](VISION.md)
 - [Architecture and module boundaries](ARCHITECTURE.md)
 - [Configuration, diagnostics, and recovery](docs/OPERATIONS.md)
+- [Structured error taxonomy and migration guide](docs/ERRORS.md)
 - [Release process](docs/RELEASING.md)
 - [Roadmap governance](ROADMAP.md)
 - [Changelog](CHANGELOG.md)
@@ -107,6 +109,8 @@ npm run verify:release
 ```
 
 `npm run verify:release` builds the package, checks immutable runtime dependencies and changelog/version structure, and inspects `npm pack --dry-run` contents. Tag-triggered GitHub releases attach the verified tarball without publishing to npm; see [the release process](docs/RELEASING.md). The benchmark is a regression budget for in-process policy overhead, not filesystem throughput.
+
+Failures reject with exported `SmartEditError` instances. Use `error.code`/`SmartEditErrorCode` instead of parsing messages; the CLI prints `[E_CODE] readable message` to stderr and exits nonzero. See the [structured error contract](docs/ERRORS.md), including the compatibility change from resolved core error strings to rejected coded errors and the structured-metadata redaction policy.
 
 CI tests Node.js 22 and 24 on the latest Ubuntu, Windows, and macOS runners. Cross-platform tests cover paths with spaces, shell-free CLI invocation, CRLF preservation, and capability-based permission behavior; the POSIX permission fixture is skipped on Windows because Windows does not enforce POSIX write bits.
 

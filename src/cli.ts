@@ -3,6 +3,7 @@
 import { fileURLToPath } from 'node:url';
 import { FilesystemPiClient } from './filesystem-client.js';
 import { SmartEditSession } from './smart-edit.js';
+import { formatSmartEditError, SmartEditError, SmartEditErrorCode } from './errors.js';
 
 const usage = 'Usage: pi-smart-edit <replace-unique|replace-between|anchored-retry> --path <file> ...';
 
@@ -14,7 +15,7 @@ function arg(args: string[], name: string): string | undefined {
 
 function requiredArg(args: string[], name: string): string {
   const value = arg(args, name);
-  if (value === undefined) throw new Error(`Missing ${name}`);
+  if (value === undefined) throw new SmartEditError(SmartEditErrorCode.InvalidInput, `Missing ${name}`);
   return value;
 }
 
@@ -24,10 +25,10 @@ function linesArg(args: string[]): string[] {
   try {
     value = JSON.parse(source);
   } catch {
-    throw new Error('--lines-json must be valid JSON');
+    throw new SmartEditError(SmartEditErrorCode.InvalidInput, '--lines-json must be valid JSON');
   }
   if (!Array.isArray(value) || value.some((line) => typeof line !== 'string')) {
-    throw new Error('--lines-json must be a JSON array of strings');
+    throw new SmartEditError(SmartEditErrorCode.InvalidInput, '--lines-json must be a JSON array of strings');
   }
   return value;
 }
@@ -35,7 +36,7 @@ function linesArg(args: string[]): string[] {
 export async function runCli(args: string[]): Promise<string> {
   const command = args[0];
   const path = arg(args, '--path');
-  if (!command || !path) throw new Error(usage);
+  if (!command || !path) throw new SmartEditError(SmartEditErrorCode.InvalidInput, usage);
 
   const session = new SmartEditSession(new FilesystemPiClient());
 
@@ -55,7 +56,7 @@ export async function runCli(args: string[]): Promise<string> {
   if (command === 'anchored-retry') {
     const op = arg(args, '--op') ?? 'replace';
     if (op !== 'replace' && op !== 'append' && op !== 'prepend') {
-      throw new Error('--op must be one of: replace, append, prepend');
+      throw new SmartEditError(SmartEditErrorCode.InvalidInput, '--op must be one of: replace, append, prepend');
     }
     return session.replaceAnchoredWithRetry(path, {
       op,
@@ -65,14 +66,14 @@ export async function runCli(args: string[]): Promise<string> {
     });
   }
 
-  throw new Error(`Unknown command: ${command}. ${usage}`);
+  throw new SmartEditError(SmartEditErrorCode.InvalidInput, `Unknown command: ${command}. ${usage}`);
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
   try {
     console.log(await runCli(args));
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    console.error(formatSmartEditError(error));
     process.exitCode = 1;
   }
 }

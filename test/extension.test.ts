@@ -12,6 +12,7 @@ import registerSmartEdit, {
   type SmartEditParameters,
 } from '../src/extension.js';
 import { FilesystemPiClient } from '../src/filesystem-client.js';
+import { SmartEditError, SmartEditErrorCode } from '../src/errors.js';
 
 type RegisteredTool = Parameters<SmartEditExtensionApi['registerTool']>[0];
 
@@ -120,6 +121,21 @@ test('schema validation prevents adapter errors from reaching the filesystem', a
   assert.equal(await readFile(path, 'utf8'), 'unchanged\n');
 });
 
+test('direct Pi execution exposes schema code details and does not mutate', async () => {
+  const tool = register();
+  const path = await fixture('unchanged\n');
+  const invalid = { path, mode: 'replace_unique', oldText: 'unchanged' } as SmartEditParameters;
+
+  await assert.rejects(
+    tool.execute('invalid-direct', invalid, undefined, undefined, context(dirname(path))),
+    (error: unknown) =>
+      error instanceof SmartEditError &&
+      error.code === SmartEditErrorCode.SchemaInvalid &&
+      error.details.code === SmartEditErrorCode.SchemaInvalid,
+  );
+  assert.equal(await readFile(path, 'utf8'), 'unchanged\n');
+});
+
 test('serializes relative smart_edit paths with absolute queued aliases', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'pi-smart-edit-alias-'));
   const path = join(directory, 'race.txt');
@@ -191,13 +207,16 @@ test('holds the queue across the stale-anchor retry boundary', async () => {
 
   FilesystemPiClient.prototype.edit = async function (params) {
     attempts += 1;
-    events.push(`attempt-${attempts}`);
-    const result = await originalEdit.call(this, params);
-    if (attempts === 1) {
-      firstAttemptFinished.resolve();
-      await allowRetry.promise;
+    const attempt = attempts;
+    events.push(`attempt-${attempt}`);
+    try {
+      return await originalEdit.call(this, params);
+    } finally {
+      if (attempt === 1) {
+        firstAttemptFinished.resolve();
+        await allowRetry.promise;
+      }
     }
-    return result;
   };
 
   try {
@@ -254,7 +273,10 @@ test('releases the queue when smart_edit rejects', async () => {
     });
     allowRead.resolve();
 
-    await assert.rejects(edit, /Unable to find boundary anchors/);
+    await assert.rejects(
+      edit,
+      (error: unknown) => error instanceof SmartEditError && error.code === SmartEditErrorCode.BoundaryNotFound,
+    );
     await competitorEntered.promise;
     await competitor;
     assert.equal(await readFile(path, 'utf8'), 'released\n');

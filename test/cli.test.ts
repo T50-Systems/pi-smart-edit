@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { FilesystemPiClient } from '../src/filesystem-client.js';
 import { runCli } from '../src/cli.js';
+import { SmartEditError, SmartEditErrorCode } from '../src/errors.js';
 
 const cliPath = fileURLToPath(new URL('../src/cli.js', import.meta.url));
 
@@ -74,19 +75,21 @@ test('documented anchored-retry CLI recipe succeeds without shell quoting', asyn
 
 test('invalid CLI inputs fail actionably without writing', async () => {
   const path = await fixture('invalid.ts', 'unchanged\n');
-  const cases: Array<{ args: string[]; error: RegExp }> = [
-    { args: ['replace-between', '--path', path, '--start', 'unchanged', '--end', 'unchanged', '--lines-json', '['], error: /--lines-json must be valid JSON/ },
-    { args: ['replace-between', '--path', path, '--start', 'unchanged', '--end', 'unchanged', '--lines-json', '[1]'], error: /JSON array of strings/ },
-    { args: ['replace-unique', '--path', path, '--old', 'unchanged'], error: /Missing --new/ },
-    { args: ['anchored-retry', '--path', path, '--pos', '1#AA:unchanged', '--op', 'remove'], error: /--op must be one of/ },
-    { args: ['unknown', '--path', path], error: /Unknown command: unknown/ },
-    { args: [], error: /Usage: pi-smart-edit/ },
+  const cases: Array<{ args: string[]; code: string; error: RegExp }> = [
+    { args: ['replace-between', '--path', path, '--start', 'unchanged', '--end', 'unchanged', '--lines-json', '['], code: 'E_INVALID_INPUT', error: /--lines-json must be valid JSON/ },
+    { args: ['replace-between', '--path', path, '--start', 'unchanged', '--end', 'unchanged', '--lines-json', '[1]'], code: 'E_INVALID_INPUT', error: /JSON array of strings/ },
+    { args: ['replace-unique', '--path', path, '--old', 'unchanged'], code: 'E_INVALID_INPUT', error: /Missing --new/ },
+    { args: ['anchored-retry', '--path', path, '--pos', '1#AA:unchanged', '--op', 'remove'], code: 'E_INVALID_INPUT', error: /--op must be one of/ },
+    { args: ['unknown', '--path', path], code: 'E_INVALID_INPUT', error: /Unknown command: unknown/ },
+    { args: [], code: 'E_INVALID_INPUT', error: /Usage: pi-smart-edit/ },
   ];
 
   for (const entry of cases) {
     const before = await readFile(path, 'utf8');
     const result = invoke(entry.args);
     assert.notEqual(result.status, 0, `expected failure for ${entry.args.join(' ')}`);
+    assert.match(result.stderr, new RegExp(`^\\[${entry.code}\\] `));
+    assert.equal(result.stdout, '');
     assert.match(result.stderr, entry.error);
     assert.equal(await readFile(path, 'utf8'), before);
   }
@@ -96,7 +99,21 @@ test('runCli exposes the adapter for in-process coverage and stable errors', asy
   const path = await fixture('direct.ts', 'before\n');
   await runCli(['replace-unique', '--path', path, '--old', 'before', '--new', 'after']);
   assert.equal(await readFile(path, 'utf8'), 'after\n');
-  await assert.rejects(runCli(['anchored-retry', '--path', path, '--op', 'invalid']), /--op must be one of/);
+  await assert.rejects(
+    runCli(['anchored-retry', '--path', path, '--op', 'invalid']),
+    (error: unknown) => error instanceof SmartEditError && error.code === SmartEditErrorCode.InvalidInput,
+  );
+});
+
+test('CLI emits the core code deterministically and does not mutate on ambiguity', async () => {
+  const path = await fixture('ambiguous.ts', 'same\nsame\n');
+  const before = await readFile(path, 'utf8');
+  const result = invoke(['replace-unique', '--path', path, '--old', 'same', '--new', 'changed']);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /^\[E_INVALID_PATCH\] replace_text requires one unique exact occurrence\r?\n$/);
+  assert.equal(result.stdout, '');
+  assert.equal(await readFile(path, 'utf8'), before);
 });
 
 test('permission failures are non-zero and preserve content', { skip: process.platform === 'win32' && 'POSIX write bits are not enforced on Windows' }, async () => {
@@ -106,6 +123,7 @@ test('permission failures are non-zero and preserve content', { skip: process.pl
     const result = invoke(['replace-unique', '--path', path, '--old', 'locked', '--new', 'changed']);
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /permission|EACCES/i);
+    assert.match(result.stderr, /^\[E_FILESYSTEM_PERMISSION\] /);
     assert.equal(await readFile(path, 'utf8'), 'locked\n');
   } finally {
     await chmod(path, 0o644);
