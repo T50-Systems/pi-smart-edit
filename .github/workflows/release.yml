@@ -73,7 +73,7 @@ jobs:
           node --input-type=module -e "import{readFile,appendFile}from'node:fs/promises';const [entry]=JSON.parse(await readFile('pack-report.json','utf8'));await appendFile(process.env.GITHUB_OUTPUT,'package-file='+entry.filename+'\n')"
 
       - name: Upload verified package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: package-${{ steps.metadata.outputs.tag }}
           path: |
