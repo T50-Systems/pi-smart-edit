@@ -38,14 +38,19 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           fetch-depth: 0
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 10.34.9
+          run_install: false
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Resolve and verify release metadata
         id: metadata
@@ -57,14 +62,14 @@ jobs:
 
       - name: Run release checks
         run: |
-          npm run check
-          npm test
-          npm run coverage
-          npm run benchmark
-          npm run verify:policy
-          npm run verify:workflows
-          npm audit --omit=dev --audit-level=high
-          npm run verify:release
+          pnpm run check
+          pnpm test
+          pnpm run coverage
+          pnpm run benchmark
+          pnpm run verify:policy
+          pnpm run verify:workflows
+          pnpm audit --prod --audit-level=high
+          pnpm run verify:release
 
       - name: Build package artifact
         id: pack

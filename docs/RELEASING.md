@@ -16,21 +16,21 @@ Pull-request CI validates Node.js 22 and 24 on the latest Ubuntu, Windows, and m
 
 1. Start from current `main` with a clean tree.
 2. Move relevant `CHANGELOG.md` entries from `[Unreleased]` to a dated version section.
-3. Set the same version in `package.json` and `package-lock.json`.
+3. Set the same version in `package.json` and `pnpm-lock.yaml`.
 4. Document migration or rollback notes for behavior changes.
 5. Run:
 
 ```bash
-npm ci
-npm run check
-npm test
-npm run coverage
-npm run benchmark
-npm run verify:dependencies
-npm run verify:policy
-npm run verify:workflows
-npm audit --omit=dev --audit-level=high
-npm run verify:release
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm test
+pnpm run coverage
+pnpm run benchmark
+pnpm run verify:dependencies
+pnpm run verify:policy
+pnpm run verify:workflows
+pnpm audit --prod --audit-level=high
+pnpm run verify:release
 ```
 
 `verify:release` checks dependency immutability, changelog structure/version history, and the dry-run package manifest. `prepare-release.mjs vX.Y.Z` additionally requires the tag, package version, lockfile versions, and dated changelog section to agree, then extracts only that version's notes.

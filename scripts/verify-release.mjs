@@ -1,18 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { verifyRuntimeDependencies } from './verify-dependencies.mjs';
+import { verifyPnpmManifest, verifyRuntimeDependencies } from './verify-dependencies.mjs';
+import { parse } from 'yaml';
 
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const changelog = await readFile(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
-const packageLock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
+const packageLock = parse(await readFile(new URL('../pnpm-lock.yaml', import.meta.url), 'utf8'));
 
-assert.equal(packageLock.version, packageJson.version, 'package-lock.json version must match package.json');
-assert.equal(
-  packageLock.packages?.['']?.version,
-  packageJson.version,
-  'package-lock.json root package version must match package.json',
-);
+verifyPnpmManifest(packageJson, packageLock);
 verifyRuntimeDependencies(packageJson, packageLock);
 
 assert.match(changelog, /^## \[Unreleased\]$/m, 'CHANGELOG.md must contain an [Unreleased] section');
@@ -23,14 +19,14 @@ assert.match(
 );
 
 const npmCli = process.env.npm_execpath;
-assert.ok(npmCli, 'Run release verification through npm run verify:release');
+assert.ok(npmCli, 'Run release verification through pnpm run verify:release');
 const packed = spawnSync(process.execPath, [npmCli, 'pack', '--dry-run', '--json'], {
   cwd: new URL('..', import.meta.url),
   encoding: 'utf8',
 });
 assert.equal(packed.status, 0, packed.error?.message ?? packed.stderr ?? 'npm pack --dry-run failed');
 const report = JSON.parse(packed.stdout);
-const files = new Set(report[0].files.map((entry) => entry.path));
+const files = new Set((Array.isArray(report) ? report[0] : report).files.map((entry) => entry.path));
 for (const required of [
   'ARCHITECTURE.md',
   'CHANGELOG.md',

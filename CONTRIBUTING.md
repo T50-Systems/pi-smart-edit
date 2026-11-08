@@ -15,25 +15,25 @@ The project does not require environment variables or external services for loca
 ```bash
 git clone https://github.com/T50-Systems/pi-smart-edit.git
 cd pi-smart-edit
-npm ci
-npm run check
-npm test
-npm run coverage
-npm run benchmark
-npm run verify:dependencies
-npm run verify:policy
-npm run verify:workflows
-npm audit --omit=dev --audit-level=high
-npm run verify:release
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm test
+pnpm run coverage
+pnpm run benchmark
+pnpm run verify:dependencies
+pnpm run verify:policy
+pnpm run verify:workflows
+pnpm audit --prod --audit-level=high
+pnpm run verify:release
 ```
 
-`npm run check` performs a TypeScript typecheck without emitting files. `npm test` first builds into `dist/`, then runs the compiled `node:test` suite. Dependency, repository-policy, workflow-YAML, coverage, benchmark, and release-package checks are documented in [VISION.md](VISION.md) and [docs/RELEASING.md](docs/RELEASING.md).
+`pnpm run check` performs a TypeScript typecheck without emitting files. `pnpm test` first builds into `dist/`, then runs the compiled `node:test` suite. Dependency, repository-policy, workflow-YAML, coverage, benchmark, and release-package checks are documented in [VISION.md](VISION.md) and [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Development workflow
 
 1. Create a branch from the current `main` branch.
 2. Make one focused change and add or update tests when behavior changes.
-3. Run `npm run check` and `npm test` locally.
+3. Run `pnpm run check` and `pnpm test` locally.
 4. Update the README or examples when a user-facing command, payload, or limitation changes.
 5. Open a pull request that explains the reason for the change and the validation performed.
 
@@ -64,7 +64,7 @@ Use temporary directories for filesystem tests and clean them up after each test
 Run an individual compiled test after building with:
 
 ```bash
-npm run build
+pnpm run build
 node --test dist/test/smart-edit.test.js
 ```
 

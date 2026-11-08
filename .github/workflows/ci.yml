@@ -27,33 +27,38 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 10.34.9
+          run_install: false
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: npm run check
+        run: pnpm run check
 
       - name: Build and test
-        run: npm test
+        run: pnpm test
 
       - name: Enforce coverage budgets
-        run: npm run coverage
+        run: pnpm run coverage
 
       - name: Verify repository policy and workflow YAML
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == 22
         run: |
-          npm run verify:policy
-          npm run verify:workflows
+          pnpm run verify:policy
+          pnpm run verify:workflows
 
       - name: Verify release package
         if: matrix.node-version == 22
-        run: npm run verify:release
+        run: pnpm run verify:release
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: pnpm audit --prod --audit-level=high
