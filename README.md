@@ -25,8 +25,8 @@ For a verified contributor setup:
 ```bash
 git clone https://github.com/T50-Systems/pi-smart-edit.git
 cd pi-smart-edit
-npm ci
-npm test
+pnpm install --frozen-lockfile
+pnpm test
 ```
 
 ## Why this exists
@@ -96,19 +96,19 @@ Keep filesystem behavior in the adapter, editing policy in `smart-edit.ts`, and 
 ## Validation
 
 ```bash
-npm ci
-npm run check
-npm test
-npm run coverage
-npm run benchmark
-npm run verify:dependencies
-npm run verify:policy
-npm run verify:workflows
-npm audit --omit=dev --audit-level=high
-npm run verify:release
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm test
+pnpm run coverage
+pnpm run benchmark
+pnpm run verify:dependencies
+pnpm run verify:policy
+pnpm run verify:workflows
+pnpm audit --prod --audit-level=high
+pnpm run verify:release
 ```
 
-`npm run verify:release` builds the package, checks immutable runtime dependencies and changelog/version structure, and inspects `npm pack --dry-run` contents. Tag-triggered GitHub releases attach the verified tarball without publishing to npm; see [the release process](docs/RELEASING.md). The benchmark is a regression budget for in-process policy overhead, not filesystem throughput.
+`pnpm run verify:release` builds the package, checks immutable runtime dependencies and changelog/version structure, and inspects `npm pack --dry-run` contents. Tag-triggered GitHub releases attach the verified tarball without publishing to npm; see [the release process](docs/RELEASING.md). The benchmark is a regression budget for in-process policy overhead, not filesystem throughput.
 
 Failures reject with exported `SmartEditError` instances. Use `error.code`/`SmartEditErrorCode` instead of parsing messages; the CLI prints `[E_CODE] readable message` to stderr and exits nonzero. See the [structured error contract](docs/ERRORS.md), including the compatibility change from resolved core error strings to rejected coded errors and the structured-metadata redaction policy.
 

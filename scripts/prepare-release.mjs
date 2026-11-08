@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'yaml';
+import { verifyPnpmManifest } from './verify-dependencies.mjs';
 
 function option(name) {
   const index = process.argv.indexOf(name);
@@ -22,8 +24,11 @@ export function extractReleaseNotes(changelog, version) {
 export function verifyReleaseMetadata(tag, packageJson, packageLock, changelog) {
   assert.match(tag, /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, 'release tag must use vX.Y.Z format');
   assert.equal(tag, `v${packageJson.version}`, `tag ${tag} must match package version v${packageJson.version}`);
-  assert.equal(packageLock.version, packageJson.version, 'package-lock.json version must match package.json');
-  assert.equal(packageLock.packages?.['']?.version, packageJson.version, 'package-lock.json root version must match package.json');
+  if (packageLock.importers) verifyPnpmManifest(packageJson, packageLock);
+  else {
+    assert.equal(packageLock.version, packageJson.version, 'package-lock.json version must match package.json');
+    assert.equal(packageLock.packages?.['']?.version, packageJson.version, 'package-lock.json root version must match package.json');
+  }
   return extractReleaseNotes(changelog, packageJson.version);
 }
 
@@ -34,14 +39,14 @@ if (!tag) {
 } else {
   try {
     const packagePath = resolve(option('--package') ?? fileURLToPath(new URL('../package.json', import.meta.url)));
-    const lockPath = resolve(option('--lock') ?? fileURLToPath(new URL('../package-lock.json', import.meta.url)));
+    const lockPath = resolve(option('--lock') ?? fileURLToPath(new URL('../pnpm-lock.yaml', import.meta.url)));
     const changelogPath = resolve(option('--changelog') ?? fileURLToPath(new URL('../CHANGELOG.md', import.meta.url)));
     const [packageSource, lockSource, changelog] = await Promise.all([
       readFile(packagePath, 'utf8'),
       readFile(lockPath, 'utf8'),
       readFile(changelogPath, 'utf8'),
     ]);
-    const notes = verifyReleaseMetadata(tag, JSON.parse(packageSource), JSON.parse(lockSource), changelog);
+    const notes = verifyReleaseMetadata(tag, JSON.parse(packageSource), lockPath.endsWith('.json') ? JSON.parse(lockSource) : parse(lockSource), changelog);
     const output = option('--output');
     if (output) await writeFile(resolve(output), `${notes}\n`, 'utf8');
     else console.log(notes);
